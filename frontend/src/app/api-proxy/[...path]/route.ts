@@ -11,7 +11,9 @@ async function handler(
 
   // Preserve query string from original request
   const { search } = new URL(request.url);
-  const backendUrl = `${BACKEND_URL}/api/${pathStr}${search}`;
+  // Django requires trailing slashes (APPEND_SLASH=True by default)
+  const trailingSlash = pathStr.endsWith('/') ? '' : '/';
+  const backendUrl = `${BACKEND_URL}/api/${pathStr}${trailingSlash}${search}`;
 
   // Forward headers, stripping hop-by-hop headers
   const headers = new Headers();
