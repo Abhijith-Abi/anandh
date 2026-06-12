@@ -5,14 +5,18 @@ from django.contrib.auth.models import AbstractUser
 class User(AbstractUser):
     ADMIN = 'ADMIN'
     TEACHER = 'TEACHER'
+    STUDENT = 'STUDENT'
     
     ROLE_CHOICES = [
         (ADMIN, 'Admin'),
         (TEACHER, 'Teacher'),
+        (STUDENT, 'Student'),
     ]
     
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default=TEACHER)
-    email = models.EmailField(unique=True)
+    email = models.EmailField(unique=True, blank=True, default='')
+    # Links a STUDENT-role user back to the Student record
+    student_ref_id = models.CharField(max_length=50, blank=True, null=True, unique=True)
 
     def __str__(self):
         return f"{self.username} ({self.role})"
@@ -81,6 +85,25 @@ class Student(models.Model):
     def save(self, *args, **kwargs):
         self.risk_level = self.calculate_risk()
         super().save(*args, **kwargs)
+        # Auto-create a login account for this student
+        user, created = User.objects.get_or_create(
+            username=self.student_id,
+            defaults={
+                'email': self.email,
+                'role': User.STUDENT,
+                'student_ref_id': self.student_id,
+                'first_name': self.name.split()[0] if self.name else '',
+                'last_name': ' '.join(self.name.split()[1:]) if len(self.name.split()) > 1 else '',
+            }
+        )
+        if created:
+            user.set_password(self.student_id)  # Default password = student_id
+            user.save()
+        elif not user.student_ref_id:
+            # Backfill student_ref_id if missing (existing accounts)
+            user.student_ref_id = self.student_id
+            user.email = self.email
+            user.save()
 
     def __str__(self):
         return f"{self.name} ({self.student_id})"

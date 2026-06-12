@@ -10,6 +10,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import action
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from analytics.models import Student
 from analytics.serializers import UserSerializer, StudentSerializer
@@ -38,6 +39,59 @@ def predict_student_grade(attendance, internal, assignment, quiz, study, gpa):
         elif gpa >= 5.0: return "Average"
         else: return "Poor"
 
+class StudentTokenView(APIView):
+    """Custom JWT login for students using student_id + password."""
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        student_id = request.data.get('student_id', '').strip()
+        password = request.data.get('password', '').strip()
+
+        if not student_id or not password:
+            return Response(
+                {'error': 'student_id and password are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            user = User.objects.get(username=student_id, role=User.STUDENT)
+        except User.DoesNotExist:
+            return Response(
+                {'error': 'Invalid Student ID or password'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        if not user.check_password(password):
+            return Response(
+                {'error': 'Invalid Student ID or password'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'student_id': student_id,
+            'name': f"{user.first_name} {user.last_name}".strip() or user.username,
+            'role': user.role,
+        })
+
+
+class StudentProfileView(APIView):
+    """Returns the authenticated student's own academic record."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != User.STUDENT:
+            return Response({'error': 'Access denied. Students only.'}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            student = Student.objects.get(student_id=request.user.student_ref_id)
+        except Student.DoesNotExist:
+            return Response({'error': 'Student record not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = StudentSerializer(student)
+        return Response(serializer.data)
 
 class UserProfileView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -45,6 +99,7 @@ class UserProfileView(APIView):
     def get(self, request):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
+
 
 
 class ForgotPasswordView(APIView):

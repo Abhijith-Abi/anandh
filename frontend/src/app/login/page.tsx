@@ -143,7 +143,20 @@ export default function Login() {
             </div>
           </div>
         </div>
+
+        <div className="mt-4 rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-4 text-center">
+          <p className="text-xs text-zinc-400">
+            Are you a student?{' '}
+            <Link
+              href="/student-login"
+              className="font-semibold text-indigo-400 hover:text-indigo-300 transition"
+            >
+              Sign in to your Student Portal →
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );
 }
+
