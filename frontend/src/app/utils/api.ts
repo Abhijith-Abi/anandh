@@ -1,4 +1,7 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api-proxy';
+// Always use the local proxy path — Next.js rewrites handle routing to the backend.
+// This ensures the browser only ever calls the same origin (HTTPS on Vercel),
+// preventing blocked:mixed-content errors.
+const API_BASE_URL = '/api-proxy';
 
 export function getAuthToken() {
   if (typeof window !== 'undefined') {
